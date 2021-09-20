@@ -1,6 +1,6 @@
 # Vault Setup
 
-## Generate PKI Infrastructure
+### Generate PKI Infrastructure
 
 ```bash
 # Build CA 
@@ -29,7 +29,7 @@ openssl req -new -key vault.key -subj "/CN=*.tkagn.internal" -out vault.csr
 openssl x509 -req -in vault.csr -CA ca.pem -CAkey ca.key -days 365 -CAcreateserial -extfile vault.ext -out vault.pem
 openssl x509 -in vault.pem -noout -text 
 ```
-## Generate Storage Files
+### Generate Storage Files
 
 ```bash
 mkdir vault
@@ -37,7 +37,7 @@ cd vault
 for i in {1..3} ; do fallocate -l 25MB vault-disk-${i}.disk ; done
 ```
 
-## Download Vault
+### Download Vault
 
 ```bash
 cd vault
@@ -49,17 +49,45 @@ rm vault_1.8.2_linux_amd64.zip
 ```
 > (U+1F4DD) [**NOTE**] Be sure the checksum check reports 'ok'  
 
-## Build Vault Container Image
+### Build Vault Container Image
 
 vi ./Dockerfile:
-```text
 
+```text
+FROM docker.io/library/alpine
+
+RUN apk update \
+&& apk upgrade \
+&& apk add openssl \
+&& apk cache clean
+
+RUN mkdir -p /vault/logs && \
+    mkdir -p /vault/file && \
+    mkdir -p /vault/config && \
+    mkdir -p /vault/storage && \
+    mkdir -p /vault/tls && \
+    export PATH=$PATH:/vault
+
+WORKDIR /vault
+cd /vault
+cp vault /vault
+cp vault.hcl /vault/config/
+cp ./ca/ca.pem /vault/tls/
+cp ./ca/vault.pem /vault/tls/
+cp ./ca/vault.key /vault/tls/
+
+
+EXPOSE 8200
+EXPOSE 8231
+
+ENTRYPOINT [ 'vault' ]
+CMD [ 'server ', '-config /vault/config/vault.hcl' ]
 ```
 
 podman build -t localhost/vault:1.8.2 .
 
 
-## Initialize Vault
+### Initialize Vault
 
 export VAULT_ADDR=127.0.0.1
 vault init -address=${VAULT_ADDR} > keys.txt
