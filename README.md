@@ -65,7 +65,7 @@ sha25sum -c vault_1.8.2_SHA256SUMS vault_1.8.2_linux_amd64.zip
 unzip ./vault_1.8.2_linux_amd64.zip
 rm vault_1.8.2_linux_amd64.zip
 ```
-> (U+1F4DD) :ledger  [**NOTE**] Be sure the checksum check reports 'ok'  
+> (U+1F4DD) :ledger:  [**NOTE**] Be sure the checksum check reports 'ok'  
 
 ### Build Vault Container Image
 
