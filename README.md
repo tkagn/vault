@@ -32,9 +32,27 @@ openssl x509 -in vault.pem -noout -text
 ### Generate Storage Files
 
 ```bash
+# Generate block devices
 mkdir vault
 cd vault
-for i in {1..3} ; do fallocate -l 25MB vault-disk-${i}.disk ; done
+for i in {1..3} ; do fallocate -l 24MB vault-disk-${i}.disk ; done
+sudo losetup -fP ./vault1.disk
+sudo losetup -fP ./vault2.disk
+sudo losetup -fP ./vault3.disk
+
+#Add filesystem
+sudo mkfs.xfs /dev/loop0
+sudo mkfs.xfs /dev/loop1
+sudo mkfs.xfs /dev/loop2
+
+# Mount filesystems
+mkdir node1-disk
+mkdir node2-disk
+mkdir node3-disk
+
+sudo mount /dev/loop0 ./node1-disk
+sudo mount /dev/loop1 ./node2-disk
+sudo mount /dev/loop2 ./node3-disk
 ```
 
 ### Download Vault
