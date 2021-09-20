@@ -1,4 +1,7 @@
+# Vault Setup
+
 ## Generate PKI Infrastructure
+
 ```bash
 # Build CA 
 openssl genrsa 4096 > ca.key
@@ -27,6 +30,7 @@ openssl x509 -req -in vault.csr -CA ca.pem -CAkey ca.key -days 365 -CAcreateseri
 openssl x509 -in vault.pem -noout -text 
 ```
 ## Generate Storage Files
+
 ```bash
 mkdir vault
 cd vault
@@ -34,6 +38,7 @@ for i in {1..3} ; do fallocate -l 25MB vault-disk-${i}.disk ; done
 ```
 
 ## Download Vault
+
 ```bash
 cd vault
 wget 'https://releases.hashicorp.com/vault/1.8.2/vault_1.8.2_linux_amd64.zip'
@@ -55,5 +60,6 @@ podman build -t localhost/vault:1.8.2 .
 
 
 ## Initialize Vault
+
 export VAULT_ADDR=127.0.0.1
 vault init -address=${VAULT_ADDR} > keys.txt
