@@ -84,10 +84,19 @@ ENTRYPOINT [ 'vault' ]
 CMD [ 'server ', '-config /vault/config/vault.hcl' ]
 ```
 
-podman build -t localhost/vault:1.8.2 .
+Build image and push to repo:
 
+```bash
+podman build -t localhost/vault:1.8.2 .
+podman tag localhost/vault:1.8.2 <remote repo>/vault:1.8.2
+podman push <remote repo>/vault:1.8.2
+```
 
 ### Initialize Vault
 
+```bash
 export VAULT_ADDR=127.0.0.1
 vault init -address=${VAULT_ADDR} > keys.txt
+```
+
+Deploy as needed.
