@@ -1,0 +1,175 @@
+= Deploy Vault
+:toc:
+
+== Add DNF Repo for Hashicorp & Install
+
+[source,bash]
+----
+ sudo dnf install -y dnf-plugins-core \
+ && sudo dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo \
+ && sudo dnf -y install vault
+
+systemctl enable vault
+systemctl start vault
+
+vault -autocomplete-install
+
+export VAULT_SKIP_VERIFY=true
+
+vault status -tls-skip-verify
+vault operator init -tls-skip-verify > ~/vault-config.txt
+vault operator unseal -tls-skip-verify
+vault status -tls-skip-verify
+
+firewall-cmd --permanent --add-port=8200/tcp
+firewall-cmd --reload
+firewall-cmd --list-all
+
+----
+
+== Generate Admin User
+
+Create Admin Policy. 
+
+admin-policy.hcl:
+
+[source,text]
+----
+# Read system health check
+path "sys/health"
+{
+  capabilities = ["read", "sudo"]
+}
+
+# Create and manage ACL policies broadly across Vault
+
+# List existing policies
+path "sys/policies/acl"
+{
+  capabilities = ["list"]
+}
+
+# Create and manage ACL policies
+path "sys/policies/acl/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# Enable and manage authentication methods broadly across Vault
+
+# Manage auth methods broadly across Vault
+path "auth/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# Create, update, and delete auth methods
+path "sys/auth/*"
+{
+  capabilities = ["create", "update", "delete", "sudo"]
+}
+
+# List auth methods
+path "sys/auth"
+{
+  capabilities = ["read"]
+}
+
+# Enable and manage the key/value secrets engine at `secret/` path
+
+# List, create, update, and delete key/value secrets
+path "secret/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# Manage secrets engines
+path "sys/mounts/*"
+{
+  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+}
+
+# List existing secrets engines.
+path "sys/mounts"
+{
+  capabilities = ["read"]
+}
+
+# Work with pki secrets engine
+path "pki*" {
+  capabilities = [ "create", "read", "update", "delete", "list", "sudo" ]
+}
+----
+
+Create Policy:
+
+[source,bash]
+----
+vault login
+vault policy write admin admin-policy.hcl
+----
+
+Create Policy:
+
+[source,bash]
+----
+vault token create -policy="admin"
+----
+
+
+== Configure Self-Signed CA
+
+[source,bash]
+----
+export VAULT_ADDR=https://services.tkagn.lab:8200 \
+&& export VAULT_SKIP_VERIFY=true \
+vault login
+
+vault secrets enable pki \
+&& vault secrets tune -max-lease-ttl=87600h pki 
+
+vault write -field=certificate pki/root/generate/internal \
+common_name="TKAGN Internal Vault CA" \
+issuer_name="root-2022" \
+ttl=87600h > root_2022_ca.crt
+
+vault list pki/issuers/
+
+vault write pki/roles/2022-servers allow_any_name=true
+
+vault write pki/config/urls \
+issuing_certificates="$VAULT_ADDR/v1/pki/ca" \
+crl_distribution_points="$VAULT_ADDR/v1/pki/crl"
+
+vault write pki/roles/tkagn-internal \
+issuer_ref="$(vault read -field=default pki/config/issuers)" \
+allowed_domains="tkagn.internal" \
+allow_subdomains=true \
+max_ttl="720h"
+----
+
+Trust the CA on Machine
+
+Add `root_2022_ca.crt` to `/etc/pki/ca-trust/source/anchors/` and run `update-ca-trust` or simply run `trust anchor --store root_2022_ca.crt`. Check if added to trust list using `trust list | grep -i tkagn`. To remove run `trust anchor --remove root_2022_ca.crt`
+
+Request Certificate
+
+[source,bash]
+----
+vault write pki/issue/tkagn-internal common_name="vault.tkagn.lab" ttl="720h" > vault.tkagn.lab.info
+----
+
+Extract certificate and private key sections into certificate and key files. 
+
+Copy Cert and Key to Vault directory
+
+[source,bash]
+----
+mv /opt/vault/tls/tls.crt /opt/vault/tls/tls.crt.orig \
+&& mv /opt/vault/tls/tls.key /opt/vault/tls/tls.key.orig
+
+cp vault.tkagn.lab.crt /opt/vault/tls/tls.crt \
+&& cp vault.tkagn.lab.key /opt/vault/tls/tls.key
+
+systemctl restart vault
+----
